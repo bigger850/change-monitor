@@ -1,0 +1,9 @@
+package com.biggerink.watch.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.biggerink.watch.entity.Subscription;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface SubscriptionMapper extends BaseMapper<Subscription> {
+}

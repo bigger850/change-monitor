@@ -1,0 +1,42 @@
+# ---------- Java / Maven ----------
+backend/target/
+*.class
+*.jar
+*.war
+
+# ---------- Node / 前端 ----------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- 环境与密钥（绝不提交）----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+certs/
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/
+*.iml
+*.swp
+.settings/
+.project
+.classpath
+
+# ---------- 系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 日志与运行时 ----------
+logs/
+*.log

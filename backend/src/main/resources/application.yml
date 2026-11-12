@@ -1,0 +1,131 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: change-monitor
+  autoconfigure:
+    # 已自定义 SecurityFilterChain + JWT，禁用 Boot 默认内存用户，避免生成随机密码告警
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:change_monitor}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+  # SMTP 未配置(host 留空)时 NotificationService 自动降级为仅记日志，不影响启动
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          connectiontimeout: 5000
+          timeout: 5000
+  # schema.sql 不自动执行；首次建库请手动导入或临时以 spring.sql.init.mode=always 启动
+  sql:
+    init:
+      mode: never
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  jackson:
+    time-zone: UTC
+    date-format: yyyy-MM-dd'T'HH:mm:ssXXX
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:/mapper/**/*.xml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    redis:
+      enabled: false   # Redis 不可达时 /actuator/health 仍可 UP，避免 LB 误摘
+    mail:
+      enabled: false
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+# ---- 应用自定义参数 ----
+watch:
+  admin:
+    password: ${WATCH_ADMIN_PASSWORD:admin123}   # 生产必须用环境变量覆盖为强密码
+  jwt:
+    # HMAC-SHA256 需 >=32 字节；生产请用环境变量 WATCH_JWT_SECRET 覆盖
+    secret: ${WATCH_JWT_SECRET:biggerink-change-monitor-p0-default-secret-key-please-override}
+    access-ttl-ms: 7200000     # 2h
+    refresh-ttl-ms: 604800000  # 7d
+    issuer: bigger.ink
+  cors:
+    allowed-origin: ${WATCH_CORS_ORIGIN:https://bigger.ink}
+  scan:
+    connect-timeout-ms: 5000
+    read-timeout-ms: 8000
+    max-retry: 2
+    user-agent: "BiggerInkWatchBot/0.1 (+https://bigger.ink/bot; respectful; robots-compliant)"
+    min-interval-sec: 300       # 订阅最小检查间隔 5 分钟
+    domain-min-gap-sec: 30      # 同域名扫描间隔 >=30s
+    domain-lock-ttl-sec: 35     # 同域名并发 1 的锁 TTL
+    scheduler-batch-size: 50
+    scheduler-lock-ttl-sec: 60
+    diff-confirm-threshold: 2   # 连续两次指纹不同才生成事件
+    max-fail-count: 5           # 连续失败置 ABNORMAL
+    diff-summary-max-len: 500
+    scheduler-fixed-delay-ms: 30000
+    scheduler-initial-delay-ms: 10000
+  sse:
+    heartbeat-ms: 15000
+  notify:
+    default-freq-limit: 20
+  idempotency:
+    ttl-hours: 24
+    manual-scan-gap-sec: 300    # 同一订阅 5 分钟内重复手动触发 -> 40901
+  default-quota-subscription: 20
+  default-quota-scan-daily: 288
+  rate-limit:
+    enabled: true              # 接口级令牌桶限流总开关
+    capacity: 60               # 桶容量
+    refill-per-sec: 20         # 每秒补充令牌数
