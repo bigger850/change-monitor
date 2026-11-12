@@ -33,7 +33,8 @@ function renderChart(points: TrendPoint[]): void {
     tooltip: { trigger: 'axis' },
     legend: { data: ['扫描量', '变更数'] },
     grid: { left: 56, right: 20, top: 40, bottom: 36 },
-    xAxis: { type: 'category', boundaryGap: false, data: points.map((p) => p.bucket) },
+    // 后端 TrendPointVO 的日期字段是 statDate
+    xAxis: { type: 'category', boundaryGap: false, data: points.map((p) => p.statDate) },
     yAxis: { type: 'value' },
     series: [
       { name: '扫描量', type: 'line', smooth: true, data: points.map((p) => p.scanCount) },
@@ -49,8 +50,7 @@ async function load(): Promise<void> {
     // 大盘只消费 /dashboard/* 聚合结果，不拉原始流水自行统计
     const [ov, trend] = await Promise.all([dashboardApi.overview(), dashboardApi.trend('day')])
     overview.value = ov
-    const points: TrendPoint[] = Array.isArray(trend) ? trend : (trend?.points ?? [])
-    renderChart(points)
+    renderChart(trend ?? [])
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载大盘失败'
   } finally {

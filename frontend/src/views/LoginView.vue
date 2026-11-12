@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '../api'
 import { saveTokens } from '../api/auth'
@@ -8,32 +8,61 @@ import { notify } from '../api/http'
 const route = useRoute()
 const router = useRouter()
 const mode = ref<'login' | 'register'>('login')
+const username = ref('')
 const email = ref('')
 const password = ref('')
 const submitting = ref(false)
 const errorMsg = ref('')
 
+const isRegister = computed(() => mode.value === 'register')
+
+// 切换模式时清掉上次的报错，避免残留误导
+watch(mode, () => {
+  errorMsg.value = ''
+})
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validate(): string {
+  if (!username.value.trim()) return '请输入用户名'
+  if (isRegister.value) {
+    if (!email.value.trim()) return '请输入邮箱'
+    if (!EMAIL_RE.test(email.value.trim())) return '邮箱格式不正确'
+  }
+  if (!password.value) return '请输入密码'
+  if (isRegister.value && password.value.length < 6) return '密码至少 6 位'
+  return ''
+}
+
 async function submit(): Promise<void> {
   errorMsg.value = ''
-  if (!email.value.trim() || !password.value) {
-    errorMsg.value = '请输入邮箱和密码'
+  const invalid = validate()
+  if (invalid) {
+    errorMsg.value = invalid
     return
   }
   submitting.value = true
   try {
-    const vo =
-      mode.value === 'login'
-        ? await authApi.login({ email: email.value.trim(), password: password.value })
-        : await authApi.register({ email: email.value.trim(), password: password.value })
-    // 注册若未直接下发 token，则切回登录；登录态以后端为准
-    if (!vo || !vo.accessToken) {
+    if (mode.value === 'login') {
+      // 登录：后端按 username 认证，登录态以后端返回的 token 为准
+      const vo = await authApi.login({
+        username: username.value.trim(),
+        password: password.value
+      })
+      saveTokens(vo.accessToken, vo.refreshToken || '')
+      notify('登录成功', 'success')
+      void router.push((route.query.redirect as string) || '/dashboard')
+    } else {
+      // 注册：后端只返回用户信息，不下发 token，因此切回登录
+      await authApi.register({
+        username: username.value.trim(),
+        email: email.value.trim(),
+        password: password.value
+      })
       mode.value = 'login'
+      password.value = ''
       notify('注册成功，请登录', 'success')
-      return
     }
-    saveTokens(vo.accessToken, vo.refreshToken || '')
-    notify(mode.value === 'login' ? '登录成功' : '注册成功', 'success')
-    void router.push((route.query.redirect as string) || '/dashboard')
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : '操作失败'
   } finally {
@@ -53,16 +82,38 @@ async function submit(): Promise<void> {
       </div>
       <form @submit.prevent="submit">
         <label class="field">
+          <span>用户名</span>
+          <input
+            v-model="username"
+            class="input"
+            type="text"
+            autocomplete="username"
+            placeholder="请输入用户名"
+          />
+        </label>
+        <label v-if="isRegister" class="field">
           <span>邮箱</span>
-          <input v-model="email" class="input" type="email" autocomplete="username" placeholder="you@example.com" />
+          <input
+            v-model="email"
+            class="input"
+            type="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+          />
         </label>
         <label class="field">
           <span>密码</span>
-          <input v-model="password" class="input" type="password" autocomplete="current-password" placeholder="请输入密码" />
+          <input
+            v-model="password"
+            class="input"
+            type="password"
+            :autocomplete="isRegister ? 'new-password' : 'current-password'"
+            :placeholder="isRegister ? '至少 6 位' : '请输入密码'"
+          />
         </label>
         <div v-if="errorMsg" class="error-text">{{ errorMsg }}</div>
         <button class="btn btn-primary btn-block" type="submit" :disabled="submitting">
-          {{ submitting ? '处理中…' : mode === 'login' ? '登录' : '注册' }}
+          {{ submitting ? '处理中…' : isRegister ? '注册' : '登录' }}
         </button>
       </form>
     </div>

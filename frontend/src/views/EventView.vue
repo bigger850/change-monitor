@@ -63,8 +63,8 @@ function nextPage(): void {
 
 async function markRead(row: ChangeEventVO): Promise<void> {
   try {
-    // 契约路径 /change-events/{id}/read，VO 主键为 eventNo
-    await eventApi.markRead(row.eventNo)
+    // 后端路径是 /change-events/{id:\d+}/read，必须用数字主键，eventNo 是业务号不是主键
+    await eventApi.markRead(row.id)
     notify('已标记已读', 'success')
     await load() // readFlag 以后端响应为准，不本地改状态
   } catch (e) {
@@ -87,7 +87,7 @@ async function openDetail(row: ChangeEventVO): Promise<void> {
   detailError.value = ''
   detailOpen.value = true
   try {
-    detail.value = await eventApi.get(row.eventNo)
+    detail.value = await eventApi.get(row.id)
   } catch (e) {
     detailError.value = e instanceof Error ? e.message : '加载详情失败'
   }

@@ -11,10 +11,10 @@ import type {
   SubscriptionVO,
   EventQuery,
   ChangeEventVO,
-  NotificationChannelVO,
+  ChannelConfigVO,
+  ChannelConfigReq,
   DashboardOverviewVO,
   DashboardTrendVO,
-  TrendPoint,
   AdminSubscriptionVO,
   BlacklistVO,
   ScanTaskVO,
@@ -24,7 +24,8 @@ import type {
 
 export const authApi = {
   login: (req: LoginReq) => api.post<AuthVO>('/auth/login', req),
-  register: (req: RegisterReq) => api.post<AuthVO>('/auth/register', req),
+  // 注册返回用户信息，不下发 token，前端需切回登录
+  register: (req: RegisterReq) => api.post<UserVO>('/auth/register', req),
   logout: () => api.post<void>('/auth/logout'),
   me: () => api.get<UserVO>('/auth/me'),
   refresh: (refreshToken: string) => api.post<AuthVO>('/auth/refresh', { refreshToken })
@@ -55,16 +56,16 @@ export const eventApi = {
 }
 
 export const channelApi = {
-  get: () => api.get<NotificationChannelVO>('/notification-channels'),
-  update: (req: NotificationChannelVO) =>
-    api.put<NotificationChannelVO>('/notification-channels', req)
+  // 后端返回数组：每个渠道一条配置
+  get: () => api.get<ChannelConfigVO[]>('/notification-channels'),
+  update: (req: ChannelConfigReq) => api.put<void>('/notification-channels', req)
 }
 
 // 大盘只消费后端聚合结果，不拉原始流水自行统计
 export const dashboardApi = {
   overview: () => api.get<DashboardOverviewVO>('/dashboard/overview'),
   trend: (granularity = 'day') =>
-    api.get<DashboardTrendVO | TrendPoint[]>('/dashboard/trend', { params: { granularity } }),
+    api.get<DashboardTrendVO>('/dashboard/trend', { params: { granularity } }),
   realtime: () => api.get<DashboardOverviewVO>('/dashboard/realtime')
 }
 
@@ -74,10 +75,10 @@ export const adminApi = {
   approve: (id: string) => api.post<void>(`/admin/subscriptions/${id}/approve`),
   reject: (id: string, reason: string) =>
     api.post<void>(`/admin/subscriptions/${id}/reject`, { reason }),
-  blacklist: (params?: PageQuery) =>
-    api.get<Page<BlacklistVO> | BlacklistVO[]>('/admin/blacklist', { params }),
-  addBlacklist: (req: { url: string; reason?: string }) =>
-    api.post<BlacklistVO>('/admin/blacklist', req),
+  // 后端返回全量数组，不分页
+  blacklist: () => api.get<BlacklistVO[]>('/admin/blacklist'),
+  addBlacklist: (req: { domainPattern: string; reason?: string }) =>
+    api.post<void>('/admin/blacklist', req),
   deleteBlacklist: (id: string) => api.delete<void>(`/admin/blacklist/${id}`),
   scanTasks: (params?: PageQuery & { status?: string }) =>
     api.get<Page<ScanTaskVO>>('/admin/scan-tasks', { params }),

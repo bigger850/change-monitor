@@ -23,12 +23,14 @@ export interface PageQuery {
   sort?: string
 }
 
-/* ---------------- 认证 ---------------- */
+/* ---------------- 认证 ----------------
+   契约对齐后端 ApiDtos：登录用 username，注册额外要求 email。 */
 export interface LoginReq {
-  email: string
+  username: string
   password: string
 }
 export interface RegisterReq {
+  username: string
   email: string
   password: string
 }
@@ -37,12 +39,17 @@ export interface AuthVO {
   refreshToken: string
   expiresIn?: number
 }
+/** 对齐后端 ApiDtos.UserVO */
 export interface UserVO {
   id: string
-  email: string
+  username: string
+  email: string | null
+  phone?: string | null
   role?: string
-  subscriptionQuota?: number
-  dailyScanQuota?: number
+  status?: string
+  quotaSubscription?: number
+  quotaScanDaily?: number
+  lastLoginAt?: string | null
 }
 
 /* ---------------- 订阅 ---------------- */
@@ -75,6 +82,8 @@ export interface SubscriptionVO {
   selectorExpr?: string
   keyword?: string
   notifyChannels?: string[]
+  /** 管理端列表才填充 */
+  ownerEmail?: string
 }
 
 /* ---------------- 变更事件 ---------------- */
@@ -83,28 +92,32 @@ export interface EventQuery extends PageQuery {
   keyword?: string
 }
 export interface ChangeEventVO {
+  /** 数字主键，已读/详情接口用它；eventNo 是业务事件号，仅用于展示与 SSE 续传 */
+  id: string
   eventNo: string
   subscriptionId: string
   changeType: string
   diffSummary: string
+  confirmed?: boolean
   notifyStatus: string
   readFlag: boolean
   createdAt: string
 }
 
-/* ---------------- 通知渠道 ---------------- */
-export interface ChannelItem {
-  type: string
+/* ---------------- 通知渠道 ----------------
+   后端按「每个渠道一条配置」存储，GET 返回数组，PUT 单条更新。 */
+export interface ChannelConfigVO {
+  channel: string
+  target?: string | null
   enabled: boolean
-  target?: string
+  freqLimitPerDay?: number | null
+  lastSentAt?: string | null
 }
-export interface FrequencyCap {
-  maxPerHour: number
-  maxPerDay: number
-}
-export interface NotificationChannelVO {
-  channels: ChannelItem[]
-  frequencyCap: FrequencyCap
+export interface ChannelConfigReq {
+  channel: string
+  target?: string | null
+  enabled?: boolean
+  freqLimitPerDay?: number | null
 }
 
 /* ---------------- 数据大盘（只消费聚合结果） ---------------- */
@@ -116,41 +129,45 @@ export interface DashboardOverviewVO {
   p95CostMs: number
   queueBacklog: number
 }
+/** 对齐后端 TrendPointVO；/dashboard/trend 直接返回数组 */
 export interface TrendPoint {
-  bucket: string
+  statDate: string
   scanCount: number
   changeCount: number
+  successCount?: number
 }
-export interface DashboardTrendVO {
-  points: TrendPoint[]
-}
+export type DashboardTrendVO = TrendPoint[]
 
 /* ---------------- 管理端 ---------------- */
-export interface AdminSubscriptionVO extends SubscriptionVO {
-  ownerEmail?: string
-  reviewStatus?: string
-}
+/** 管理端订阅列表返回的就是 SubscriptionVO */
+export type AdminSubscriptionVO = SubscriptionVO
 export interface BlacklistVO {
   id: string
-  url: string
-  reason?: string
+  domainPattern: string
+  reason?: string | null
+  status?: string
+  createdBy?: string | null
   createdAt?: string
 }
 export interface ScanTaskVO {
   id: string
   subscriptionId: string
+  userId?: string
+  triggerType?: string
+  batchNo?: string | null
   status: string
-  failReason?: string
+  httpStatus?: number | null
+  costMs?: number | null
+  errorCode?: string | null
+  /** 失败原因字段名是 errorMsg，不是 failReason */
+  errorMsg?: string | null
+  startAt?: string | null
+  endAt?: string | null
   createdAt?: string
 }
-export interface AdminUserVO {
-  id: string
-  email: string
-  role?: string
-  subscriptionQuota: number
-  dailyScanQuota: number
-}
+/** 管理端用户列表返回的就是 UserVO，直接复用 */
+export type AdminUserVO = UserVO
 export interface QuotaReq {
-  subscriptionQuota?: number
-  dailyScanQuota?: number
+  quotaSubscription: number
+  quotaScanDaily: number
 }

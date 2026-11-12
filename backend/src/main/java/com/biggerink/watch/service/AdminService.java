@@ -64,7 +64,39 @@ public class AdminService {
                         .orderByDesc(Subscription::getCreatedAt));
         List<ApiDtos.SubscriptionVO> list = r.getRecords().stream()
                 .map(subscriptionService::toVO).toList();
+        fillOwnerEmail(r.getRecords(), list);
         return PageResult.of(r.getTotal(), r.getCurrent(), r.getSize(), list);
+    }
+
+    /** 管理端需要看清订阅归属，批量补一次邮箱，避免 N+1 查询 */
+    private void fillOwnerEmail(List<Subscription> records, List<ApiDtos.SubscriptionVO> list) {
+        if (records.isEmpty() || list.isEmpty()) {
+            return;
+        }
+        java.util.Set<Long> userIds = new java.util.HashSet<>();
+        for (Subscription s : records) {
+            if (s.getUserId() != null) {
+                userIds.add(s.getUserId());
+            }
+        }
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> ownerMap = new java.util.HashMap<>();
+        for (UserAccount u : userMapper.selectBatchIds(userIds)) {
+            String label = (u.getEmail() != null && !u.getEmail().isBlank()) ? u.getEmail() : u.getUsername();
+            ownerMap.put(u.getId(), label);
+        }
+        for (ApiDtos.SubscriptionVO vo : list) {
+            if (vo.getUserId() == null) {
+                continue;
+            }
+            try {
+                vo.setOwnerEmail(ownerMap.get(Long.valueOf(vo.getUserId())));
+            } catch (NumberFormatException ignored) {
+                // userId 非数字时留空即可，不影响列表展示
+            }
+        }
     }
 
     public void approve(Long id) {

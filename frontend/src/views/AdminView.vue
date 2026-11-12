@@ -39,8 +39,7 @@ async function load(): Promise<void> {
       const d = await adminApi.subscriptions({ page: 1, size: 100, status: subStatus.value || undefined })
       subs.value = d?.list ?? []
     } else if (active.value === 'blacklist') {
-      const d = await adminApi.blacklist({ page: 1, size: 100 })
-      blacklist.value = Array.isArray(d) ? d : (d?.list ?? [])
+      blacklist.value = (await adminApi.blacklist()) ?? []
     } else if (active.value === 'tasks') {
       const d = await adminApi.scanTasks({ page: 1, size: 100, status: taskStatus.value || undefined })
       tasks.value = d?.list ?? []
@@ -83,12 +82,13 @@ function confirmReject(row: AdminSubscriptionVO): void {
 }
 function addBlacklist(): void {
   if (!blUrl.value.trim()) {
-    notify('请填写 URL')
+    notify('请填写域名模式')
     return
   }
-  const url = blUrl.value.trim()
+  // 契约：后端 BlacklistReq 字段为 domainPattern
+  const domainPattern = blUrl.value.trim()
   const reason = blReason.value.trim() || undefined
-  void act(() => adminApi.addBlacklist({ url, reason }), '已加入黑名单')
+  void act(() => adminApi.addBlacklist({ domainPattern, reason }), '已加入黑名单')
   blUrl.value = ''
   blReason.value = ''
 }
@@ -100,13 +100,14 @@ function retry(row: ScanTaskVO): void {
 }
 function openQuota(row: AdminUserVO): void {
   quotaId.value = row.id
-  qSub.value = row.subscriptionQuota
-  qDaily.value = row.dailyScanQuota
+  qSub.value = row.quotaSubscription ?? 0
+  qDaily.value = row.quotaScanDaily ?? 0
 }
 function saveQuota(row: AdminUserVO): void {
-  const subscriptionQuota = Number(qSub.value) || 0
-  const dailyScanQuota = Number(qDaily.value) || 0
-  void act(() => adminApi.updateQuota(row.id, { subscriptionQuota, dailyScanQuota }), '配额已更新')
+  // 契约：后端 QuotaReq 字段为 quotaSubscription / quotaScanDaily
+  const quotaSubscription = Number(qSub.value) || 0
+  const quotaScanDaily = Number(qDaily.value) || 0
+  void act(() => adminApi.updateQuota(row.id, { quotaSubscription, quotaScanDaily }), '配额已更新')
   quotaId.value = ''
 }
 function fmt(t?: string): string {
@@ -172,16 +173,16 @@ function fmt(t?: string): string {
         <!-- 黑名单 -->
         <template v-else-if="active === 'blacklist'">
           <div class="inline-form">
-            <input v-model="blUrl" class="input" style="width: 280px" placeholder="URL" />
+            <input v-model="blUrl" class="input" style="width: 280px" placeholder="域名或模式，如 example.com / *.gov.cn" />
             <input v-model="blReason" class="input" style="width: 200px" placeholder="原因（可选）" />
             <button class="btn btn-primary btn-sm" @click="addBlacklist">+ 加入黑名单</button>
           </div>
           <table v-if="blacklist.length" class="table">
-            <thead><tr><th>ID</th><th>URL</th><th>原因</th><th>时间</th><th>操作</th></tr></thead>
+            <thead><tr><th>ID</th><th>域名模式</th><th>原因</th><th>时间</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="row in blacklist" :key="row.id">
                 <td class="mono">{{ row.id }}</td>
-                <td class="ellipsis mono" :title="row.url">{{ row.url }}</td>
+                <td class="ellipsis mono" :title="row.domainPattern">{{ row.domainPattern }}</td>
                 <td>{{ row.reason || '—' }}</td>
                 <td class="mono">{{ fmt(row.createdAt) }}</td>
                 <td><button class="btn btn-sm btn-danger" @click="removeBlacklist(row)">移除</button></td>
@@ -209,7 +210,7 @@ function fmt(t?: string): string {
                 <td class="mono">{{ row.id }}</td>
                 <td class="mono">{{ row.subscriptionId }}</td>
                 <td><span :class="['tag', row.status === 'FAILED' ? 'tag-red' : 'tag-green']">{{ row.status }}</span></td>
-                <td class="ellipsis" :title="row.failReason">{{ row.failReason || '—' }}</td>
+                <td class="ellipsis" :title="row.errorMsg || ''">{{ row.errorMsg || '—' }}</td>
                 <td class="mono">{{ fmt(row.createdAt) }}</td>
                 <td><button class="btn btn-sm" @click="retry(row)">重试</button></td>
               </tr>
@@ -221,14 +222,15 @@ function fmt(t?: string): string {
         <!-- 用户配额 -->
         <template v-else>
           <table v-if="users.length" class="table">
-            <thead><tr><th>ID</th><th>邮箱</th><th>角色</th><th>订阅数配额</th><th>日扫描配额</th><th>操作</th></tr></thead>
+            <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>订阅数配额</th><th>日扫描配额</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="row in users" :key="row.id">
                 <td class="mono">{{ row.id }}</td>
-                <td>{{ row.email }}</td>
+                <td>{{ row.username }}</td>
+                <td>{{ row.email || '—' }}</td>
                 <td>{{ row.role || '—' }}</td>
-                <td>{{ row.subscriptionQuota }}</td>
-                <td>{{ row.dailyScanQuota }}</td>
+                <td>{{ row.quotaSubscription ?? '—' }}</td>
+                <td>{{ row.quotaScanDaily ?? '—' }}</td>
                 <td>
                   <div class="ops">
                     <template v-if="quotaId === row.id">

@@ -109,6 +109,8 @@ public final class ApiDtos {
     public static class SubscriptionVO {
         private String id;
         private String userId;
+        /** 管理端列表填充：订阅归属用户的邮箱（无邮箱时退化为用户名） */
+        private String ownerEmail;
         private String name;
         private String url;
         private String domain;

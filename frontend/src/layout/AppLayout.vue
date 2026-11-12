@@ -63,7 +63,7 @@ async function logout(): Promise<void> {
         <div class="crumb">网页变更订阅与实时通知平台</div>
         <div class="topbar-right">
           <span v-if="user" class="user-chip">
-            {{ user.email }}<em v-if="user.role"> · {{ user.role }}</em>
+            {{ user.username }}<em v-if="user.role"> · {{ user.role }}</em>
           </span>
           <span v-else-if="userError" class="muted">{{ userError }}</span>
           <button class="btn btn-ghost btn-sm" @click="logout">退出</button>
