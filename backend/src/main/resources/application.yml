@@ -100,6 +100,7 @@ watch:
     refresh-ttl-ms: 604800000  # 7d
     issuer: bigger.ink
   cors:
+    # 支持逗号分隔多来源，如 https://watch.bigger.ink,http://47.106.66.24
     allowed-origin: ${WATCH_CORS_ORIGIN:https://bigger.ink}
   scan:
     connect-timeout-ms: 5000

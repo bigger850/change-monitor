@@ -22,6 +22,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -30,14 +31,18 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final ObjectMapper objectMapper;
-    private final String allowedOrigin;
+    /** 允许多个来源，逗号分隔；例如 https://watch.bigger.ink,http://47.106.66.24 */
+    private final List<String> allowedOrigins;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
                           ObjectMapper objectMapper,
                           @Value("${watch.cors.allowed-origin:https://bigger.ink}") String allowedOrigin) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.objectMapper = objectMapper;
-        this.allowedOrigin = allowedOrigin;
+        this.allowedOrigins = Arrays.stream(allowedOrigin.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     @Bean
@@ -71,11 +76,11 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** CORS 白名单仅 https://bigger.ink */
+    /** CORS 白名单，支持逗号分隔多来源 */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
                 "Authorization", "Content-Type", "Idempotency-Key",
