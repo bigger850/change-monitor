@@ -71,10 +71,15 @@ public class AuthService {
     }
 
     public ApiDtos.TokenVO login(ApiDtos.LoginReq req) {
+        String account = req.getUsername() == null ? "" : req.getUsername().trim();
+        // 登录账号同时兼容「用户名」与「邮箱」：两者共用一个输入框，避免用户记错登录方式
         UserAccount user = userMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
-                .eq(UserAccount::getUsername, req.getUsername()));
+                .and(w -> w.eq(UserAccount::getUsername, account)
+                        .or()
+                        .eq(UserAccount::getEmail, account))
+                .last("LIMIT 1"));
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
-            throw new BizException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
+            throw new BizException(ErrorCode.UNAUTHORIZED, "用户名/邮箱或密码错误");
         }
         if (!"NORMAL".equals(user.getStatus())) {
             throw new BizException(ErrorCode.FORBIDDEN, "账户已禁用");

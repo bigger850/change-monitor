@@ -24,7 +24,7 @@ watch(mode, () => {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validate(): string {
-  if (!username.value.trim()) return '请输入用户名'
+  if (!username.value.trim()) return isRegister.value ? '请输入用户名' : '请输入用户名或邮箱'
   if (isRegister.value) {
     if (!email.value.trim()) return '请输入邮箱'
     if (!EMAIL_RE.test(email.value.trim())) return '邮箱格式不正确'
@@ -82,13 +82,13 @@ async function submit(): Promise<void> {
       </div>
       <form @submit.prevent="submit">
         <label class="field">
-          <span>用户名</span>
+          <span>{{ isRegister ? '用户名' : '用户名 / 邮箱' }}</span>
           <input
             v-model="username"
             class="input"
             type="text"
             autocomplete="username"
-            placeholder="请输入用户名"
+            :placeholder="isRegister ? '请输入用户名' : '用户名或邮箱，如 admin'"
           />
         </label>
         <label v-if="isRegister" class="field">
